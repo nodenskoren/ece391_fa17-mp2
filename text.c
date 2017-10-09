@@ -609,10 +609,8 @@ void text_to_graphics(char input_type, const char* input_string_pointer) {
 	/* Display the user typed message */
 	/* Display on the right */
 	else if (input_type == 'T') {
-		if (input_string[string_length - 1] != '_') {
-			strcat(input_string, "_");
-			string_length++;
-		}
+		strcat(input_string, "_");
+		string_length++;
 		offset = 320 - 8 * string_length;
 	}
 	

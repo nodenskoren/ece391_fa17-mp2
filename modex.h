@@ -55,9 +55,9 @@
 #define IMAGE_X_DIM     320   /* pixels; must be divisible by 4  */
 /* 
  * Modified from 200 to display scrolling functionality,
- * 184 is a magic number for aesthetic purpose
+ * 183 is a magic number for aesthetic purpose
  */
-#define IMAGE_Y_DIM     184   /* pixels                          */
+#define IMAGE_Y_DIM     183   /* pixels                          */
 #define IMAGE_X_WIDTH   (IMAGE_X_DIM / 4)   /* addresses (bytes) */
 #define SCROLL_X_DIM    IMAGE_X_DIM         /* full image width  */
 #define SCROLL_Y_DIM    IMAGE_Y_DIM         /* full image width  */
