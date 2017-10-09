@@ -53,12 +53,21 @@
  * Y_DIM   is a vertical screen dimension in pixels.
  */
 #define IMAGE_X_DIM     320   /* pixels; must be divisible by 4  */
-#define IMAGE_Y_DIM     200   /* pixels                          */
+/* 
+ * Modified from 200 to display scrolling functionality,
+ * 184 is a magic number for aesthetic purpose
+ */
+#define IMAGE_Y_DIM     184   /* pixels                          */
 #define IMAGE_X_WIDTH   (IMAGE_X_DIM / 4)   /* addresses (bytes) */
 #define SCROLL_X_DIM    IMAGE_X_DIM         /* full image width  */
 #define SCROLL_Y_DIM    IMAGE_Y_DIM         /* full image width  */
 #define SCROLL_X_WIDTH  (IMAGE_X_DIM / 4)   /* addresses (bytes) */
 
+/* 
+ * the buffer holding the status bar
+ * size is 320 * 18 = 5760
+ */
+unsigned char buffer[5760];
 
 /*
  * NOTES
@@ -123,6 +132,11 @@ extern void set_view_window(int scr_x, int scr_y);
 
 /* show the logical view window on the monitor */
 extern void show_screen();
+
+/* 
+ * add the status bar components, from modex.c
+ */
+extern void add_status_bar (char input_type, const char* input_message);
 
 /* clear the video memory in mode X */
 extern void clear_screens();

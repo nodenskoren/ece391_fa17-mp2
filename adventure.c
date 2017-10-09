@@ -149,7 +149,8 @@ static int time_is_after(struct timeval* t1, struct timeval* t2);
 /* file-scope variables */
 
 static game_info_t game_info; /* game information */
-
+static char input [32];
+static int status_flag = 1;
 
 /*
  * The variables below are used to keep track of the status message helper
@@ -241,8 +242,50 @@ static game_condition_t game_loop() {
 
             /* Only draw once on entry. */
             enter_room = 0;
+			add_status_bar('S', " ");
         }
-
+		
+		
+		/* 
+		 * This area calls the function from modex.c to add components to the status bar
+		 * depending on the action took
+		 */
+		 
+		 /* Start of a critical section */
+		(void)pthread_mutex_lock(&msg_lock);
+		if(strcmp(input, get_typed_command())) {
+			add_status_bar('C', " ");
+			strcpy(input, get_typed_command());
+		}
+		
+		/* If there is an incoming status message, clear all the components and display the message */
+		if(status_msg[0] != '\0') {
+			add_status_bar('S', status_msg);	
+			status_flag = 0;
+		}
+		
+		else {
+			if(status_flag == 0) {
+				add_status_bar('C', " ");
+				status_flag = 1;
+			}
+			
+			/* Add the room name to the status bar */
+			add_status_bar ('R', room_name(game_info.where));
+			const char* cmd = get_typed_command();
+			while (' ' == *cmd) { 
+				cmd++;
+			}
+			/* If the user input is not NULL, add an underscore symbol at the beginning */
+			/* If not empty, underscore symbol gets appended to the string in text.c */
+			if ('\0' != *cmd)
+				add_status_bar('T', get_typed_command());
+			else
+				add_status_bar('T', "_");
+		}
+		(void)pthread_mutex_unlock (&msg_lock);
+		/* End of a critical section */
+		
         show_screen();
 
         /*

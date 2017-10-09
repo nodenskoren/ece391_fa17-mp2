@@ -42,5 +42,8 @@
 
 /* Standard VGA text font. */
 extern unsigned char font_data[256][16];
+extern unsigned char buffer[5760];
+/* Convert the status text to graph */
+void text_to_graphics(char input_type, const char* input_string_pointer);
 
 #endif /* TEXT_H */
