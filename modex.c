@@ -881,6 +881,13 @@ static void fill_palette_mode_x() {
     REP_OUTSB(0x03C9, palette_RGB, 64 * 3);
 }
 
+void fill_my_palette(unsigned char my_palette[192][3]) {
+	/* Start writing at color 64. */
+    OUTB (0x03C8, 0x40);
+	
+	/* Write all 192 colors from array. */
+    REP_OUTSB (0x03C9, my_palette, 192 * 3);
+}
 
 /*
  * fill_palette_text
