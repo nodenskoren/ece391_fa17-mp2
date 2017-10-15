@@ -299,6 +299,8 @@ uint32_t photo_width(const photo_t* p) {
  */
 void prep_room(const room_t* r) {
     /* Record the current room. */
+	photo_t* new_room_photo = room_photo(r);
+	fill_my_palette(new_room_photo->palette);
     cur_room = r;
 }
 
@@ -376,7 +378,6 @@ image_t* read_obj_image(const char* fname) {
     return img;
 }
 
-
 /*
  * read_photo
  *   DESCRIPTION: Read size and pixel data in 5:6:5 RGB format from a
@@ -397,6 +398,33 @@ photo_t* read_photo(const char* fname) {
     uint16_t x;        /* index over image columns */
     uint16_t y;        /* index over image rows    */
     uint16_t pixel;    /* one pixel from the file  */
+	
+	struct octree_node level_2_octree[LEVEL_2_SIZE];
+	struct octree_node level_4_octree[LEVEL_4_SIZE];
+	uint32_t i;
+	uint16_t convert_i;
+
+	uint32_t red_average;
+	uint32_t green_average;
+	uint32_t blue_average;
+	
+	for(i = 0;i < LEVEL_4_SIZE;i++) {
+		if(i < LEVEL_2_SIZE) {
+			level_2_octree[i].red_msb = 0;
+			level_2_octree[i].green_msb = 0;
+			level_2_octree[i].blue_msb = 0;
+			level_2_octree[i].number_of_pixels = 0;
+			level_2_octree[i].level_4_index = i;
+			level_2_octree[i].palette_index = 0;
+		}
+		level_4_octree[i].red_msb = 0;
+		level_4_octree[i].green_msb = 0;
+		level_4_octree[i].blue_msb = 0;
+		level_4_octree[i].number_of_pixels = 0;
+		level_4_octree[i].level_4_index = i;
+		level_4_octree[i].palette_index = 0;
+	}
+	
 
     /*
      * Open the file, allocate the structure, read the header, do some
@@ -422,6 +450,9 @@ photo_t* read_photo(const char* fname) {
         }
         return NULL;
     }
+	
+	uint32_t image_size = p->hdr.width * p->hdr.height;
+	uint16_t pixels_array[image_size];
 
     /*
      * Loop over rows from bottom to top.  Note that the file is stored
@@ -443,6 +474,8 @@ photo_t* read_photo(const char* fname) {
                 (void)fclose(in);
                 return NULL;
             }
+			
+			pixels_array[p->hdr.width * y + x] = pixel;
             /*
              * 16-bit pixel is coded as 5:6:5 RGB(5 bits red, 6 bits green,
              * and 6 bits blue).  We change to 2:2:2, which we've set for the
@@ -454,11 +487,104 @@ photo_t* read_photo(const char* fname) {
              * the game puts up a photo, you should then change the palette
              * to match the colors needed for that photo.
              */
+			 /*
             p->img[p->hdr.width * y + x] = (((pixel >> 14) << 4) | (((pixel >> 9) & 0x3) << 2) | ((pixel >> 3) & 0x3));
-        }
+			*/
+			
+			/* Convert 5:6:5 RBG values to 4:4:4 index */
+			
+			convert_i = ((pixel >> 12) << 8) | (((pixel >> 7) & 0xF) << 4) | ((pixel >> 1) & 0xF); 
+			level_4_octree[convert_i].red_msb += (pixel >> 11) & 0x1F;
+			level_4_octree[convert_i].green_msb += (pixel >> 5) & 0x3F;
+			level_4_octree[convert_i].blue_msb += pixel & 0x1F;
+			level_4_octree[convert_i].number_of_pixels++;
+		}
     }
 
     /* All done.  Return success. */
     (void)fclose(in);
+	
+	qsort(level_4_octree, LEVEL_4_SIZE, sizeof(struct octree_node), octree_qsort_pixel);
+	
+	for(i = 0; i < LEVEL_4_USED_SIZE; i++) {
+
+		if(level_4_octree[i].number_of_pixels != 0) {
+			red_average = level_4_octree[i].red_msb / level_4_octree[i].number_of_pixels;
+			green_average = level_4_octree[i].green_msb / level_4_octree[i].number_of_pixels;		
+			blue_average = level_4_octree[i].blue_msb / level_4_octree[i].number_of_pixels;
+		}
+		
+		else {
+			red_average = 0;
+			green_average = 0;
+			blue_average = 0;
+		}
+		
+		level_4_octree[i].palette_index = i + LEVEL_2_SIZE;
+		p->palette[i][0] = (uint8_t) (red_average & 0x1F) << 1;
+		p->palette[i][1] = (uint8_t) (green_average & 0x3F);
+		p->palette[i][2] = (uint8_t) (blue_average & 0x1F) << 1;
+		
+	}
+	
+	for(i = LEVEL_4_USED_SIZE; i < LEVEL_4_SIZE; i++) {
+		convert_i = level_4_to_2(level_4_octree[i].level_4_index);
+		level_4_octree[i].palette_index = convert_i + LEVEL_2_SIZE + LEVEL_4_USED_SIZE;	
+		
+		level_2_octree[convert_i].red_msb += level_4_octree[i].red_msb;
+		level_2_octree[convert_i].green_msb += level_4_octree[i].green_msb;
+		level_2_octree[convert_i].blue_msb += level_4_octree[i].blue_msb;
+		level_2_octree[convert_i].number_of_pixels += level_4_octree[i].number_of_pixels;
+	}
+	
+	for(i = 0; i < LEVEL_2_SIZE; i++) {
+		if(level_2_octree[i].number_of_pixels != 0) {
+			red_average = level_2_octree[i].red_msb /= level_2_octree[i].number_of_pixels;
+			green_average = level_2_octree[i].green_msb / level_2_octree[i].number_of_pixels;
+			blue_average = level_2_octree[i].blue_msb / level_2_octree[i].number_of_pixels;
+		}	
+		
+		else {
+			red_average = 0;
+			green_average = 0;
+			blue_average = 0;
+		}
+		
+		/* convert back to 5:6:5 */
+		p->palette[LEVEL_4_USED_SIZE + i][0] = (uint8_t) (red_average & 0x1F) << 1;
+		p->palette[LEVEL_4_USED_SIZE + i][1] = (uint8_t) (green_average & 0x3F);
+		p->palette[LEVEL_4_USED_SIZE + i][2] = (uint8_t) (blue_average & 0x1F) << 1;
+		
+	}
+	qsort(level_4_octree, LEVEL_4_SIZE, sizeof(struct octree_node), octree_qsort_index);
+	
+	for(i = 0; i < image_size; i++) {
+		pixel = pixels_array[i];
+		convert_i = ((pixel >> 12) << 8) | (((pixel >> 7) & 0xF) << 4) | ((pixel >> 1) & 0xF);
+		p->img[i] = level_4_octree[convert_i].palette_index;
+	}
+	
     return p;
+
 }
+
+int octree_qsort_pixel(const void* x, const void* y){
+	const struct octree_node* octree_node_a = x;
+	const struct octree_node* octree_node_b = y;
+	return (octree_node_b->number_of_pixels - octree_node_a->number_of_pixels);
+}
+
+int octree_qsort_index(const void* x, const void* y){
+	const struct octree_node* octree_node_a = x;
+	const struct octree_node* octree_node_b = y;
+	return (octree_node_a->level_4_index - octree_node_b->level_4_index);
+}
+
+uint16_t level_4_to_2(uint16_t level_4_node_color_code) {
+	uint16_t convert_red_index = (level_4_node_color_code >> 10) << 4;
+	uint16_t convert_green_index = ((level_4_node_color_code >> 6) & 0x3) << 2;
+	uint16_t convert_blue_index = (level_4_node_color_code >> 2) & 0x3;
+	return convert_red_index | convert_green_index | convert_blue_index;
+}
+
+

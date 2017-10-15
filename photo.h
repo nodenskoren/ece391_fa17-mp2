@@ -51,7 +51,20 @@
 #define MAX_PHOTO_HEIGHT  1024
 #define MAX_OBJECT_WIDTH   160
 #define MAX_OBJECT_HEIGHT  100
+/* 8^4 = 4096 nodes at level 4 */
+#define LEVEL_4_SIZE 4096
+/* 8^2 = 64 nodes at level 2 */
+#define LEVEL_2_SIZE 64
+#define LEVEL_4_USED_SIZE 128
 
+struct octree_node {
+	unsigned int red_msb;
+	unsigned int green_msb;
+	unsigned int blue_msb;
+	unsigned int number_of_pixels;
+	uint16_t level_4_index;
+	uint8_t palette_index;
+};
 
 /* Fill a buffer with the pixels for a horizontal line of current room. */
 extern void fill_horiz_buffer(int x, int y, unsigned char buf[SCROLL_X_DIM]);
@@ -82,6 +95,12 @@ extern image_t* read_obj_image(const char* fname);
 
 /* Read room photo from a file into a dynamically allocated structure. */
 extern photo_t* read_photo(const char* fname);
+
+extern int octree_qsort_index(const void* x, const void* y);
+
+extern int octree_qsort_pixel(const void* x, const void* y);
+
+uint16_t level_4_to_2(uint16_t level_4_node_color_code);
 
 /*
  * N.B.  I'm aware that Valgrind and similar tools will report the fact that
