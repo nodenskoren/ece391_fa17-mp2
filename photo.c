@@ -476,6 +476,12 @@ photo_t* read_photo(const char* fname) {
             }
 			
 			pixels_array[p->hdr.width * y + x] = pixel;
+			/* Convert 5:6:5 RBG values to 4:4:4 index */
+			convert_i = ((pixel >> 12) << 8) | (((pixel >> 7) & 0xF) << 4) | ((pixel >> 1) & 0xF); 
+			level_4_octree[convert_i].red_msb += (pixel >> 11) & 0x1F;
+			level_4_octree[convert_i].green_msb += (pixel >> 5) & 0x3F;
+			level_4_octree[convert_i].blue_msb += pixel & 0x1F;
+			level_4_octree[convert_i].number_of_pixels++;
             /*
              * 16-bit pixel is coded as 5:6:5 RGB(5 bits red, 6 bits green,
              * and 6 bits blue).  We change to 2:2:2, which we've set for the
@@ -490,24 +496,19 @@ photo_t* read_photo(const char* fname) {
 			 /*
             p->img[p->hdr.width * y + x] = (((pixel >> 14) << 4) | (((pixel >> 9) & 0x3) << 2) | ((pixel >> 3) & 0x3));
 			*/
-			
-			/* Convert 5:6:5 RBG values to 4:4:4 index */
-			
-			convert_i = ((pixel >> 12) << 8) | (((pixel >> 7) & 0xF) << 4) | ((pixel >> 1) & 0xF); 
-			level_4_octree[convert_i].red_msb += (pixel >> 11) & 0x1F;
-			level_4_octree[convert_i].green_msb += (pixel >> 5) & 0x3F;
-			level_4_octree[convert_i].blue_msb += pixel & 0x1F;
-			level_4_octree[convert_i].number_of_pixels++;
 		}
     }
 
     /* All done.  Return success. */
     (void)fclose(in);
 	
+	/* sort octree based on cluster size of a color */
 	qsort(level_4_octree, LEVEL_4_SIZE, sizeof(struct octree_node), octree_qsort_pixel);
 	
+	/* level 4 octree processing, corresponding to the first 192 - 64 palette entries */
 	for(i = 0; i < LEVEL_4_USED_SIZE; i++) {
 
+		/* calculate the average of red, green, and blue magnitudes */
 		if(level_4_octree[i].number_of_pixels != 0) {
 			red_average = level_4_octree[i].red_msb / level_4_octree[i].number_of_pixels;
 			green_average = level_4_octree[i].green_msb / level_4_octree[i].number_of_pixels;		
@@ -520,24 +521,32 @@ photo_t* read_photo(const char* fname) {
 			blue_average = 0;
 		}
 		
-		level_4_octree[i].palette_index = i + LEVEL_2_SIZE;
-		p->palette[i][0] = (uint8_t) (red_average & 0x1F) << 1;
-		p->palette[i][1] = (uint8_t) (green_average & 0x3F);
-		p->palette[i][2] = (uint8_t) (blue_average & 0x1F) << 1;
+		/* store the current node's index in the actual palette (64 existed colors from fill_palette_modex) */
+		level_4_octree[i].palette_index = i + EXISTED_COLORS_MODEX;
+		/* convert back to 5:6:5 RGB format used in palette */
+		p->palette[i][0] = (uint8_t) (red_average & BIT_MASK_5) << 1;
+		p->palette[i][1] = (uint8_t) (green_average & BIT_MASK_6);
+		p->palette[i][2] = (uint8_t) (blue_average & BIT_MASK_5) << 1;
 		
 	}
 	
+	/* process the remaining level 4 nodes in level 2 */
 	for(i = LEVEL_4_USED_SIZE; i < LEVEL_4_SIZE; i++) {
+		/* calculate the index of the current level_4_node in level 2 tree */
 		convert_i = level_4_to_2(level_4_octree[i].level_4_index);
-		level_4_octree[i].palette_index = convert_i + LEVEL_2_SIZE + LEVEL_4_USED_SIZE;	
+		/* store the node's index in the actual palette (64 existed colors from fill_palette_modex + 128 from level 4) */		
+		level_4_octree[i].palette_index = convert_i + EXISTED_COLORS_MODEX + LEVEL_4_USED_SIZE;	
 		
+		/* store the remaining level 4 nodes data into their corresponding level 2 index */
 		level_2_octree[convert_i].red_msb += level_4_octree[i].red_msb;
 		level_2_octree[convert_i].green_msb += level_4_octree[i].green_msb;
 		level_2_octree[convert_i].blue_msb += level_4_octree[i].blue_msb;
 		level_2_octree[convert_i].number_of_pixels += level_4_octree[i].number_of_pixels;
 	}
 	
+	/* level 2 octree processing, corresponding to the remaining 64 entries */
 	for(i = 0; i < LEVEL_2_SIZE; i++) {
+		/* calculate the average of red, green, and blue magnitudes of nodes in level 2 octree */		
 		if(level_2_octree[i].number_of_pixels != 0) {
 			red_average = level_2_octree[i].red_msb /= level_2_octree[i].number_of_pixels;
 			green_average = level_2_octree[i].green_msb / level_2_octree[i].number_of_pixels;
@@ -550,16 +559,19 @@ photo_t* read_photo(const char* fname) {
 			blue_average = 0;
 		}
 		
-		/* convert back to 5:6:5 */
-		p->palette[LEVEL_4_USED_SIZE + i][0] = (uint8_t) (red_average & 0x1F) << 1;
-		p->palette[LEVEL_4_USED_SIZE + i][1] = (uint8_t) (green_average & 0x3F);
-		p->palette[LEVEL_4_USED_SIZE + i][2] = (uint8_t) (blue_average & 0x1F) << 1;
+		/* convert back to 5:6:5 RGB format used in palette */
+		p->palette[LEVEL_4_USED_SIZE + i][0] = (uint8_t) (red_average & BIT_MASK_5) << 1;
+		p->palette[LEVEL_4_USED_SIZE + i][1] = (uint8_t) (green_average & BIT_MASK_6);
+		p->palette[LEVEL_4_USED_SIZE + i][2] = (uint8_t) (blue_average & BIT_MASK_5) << 1;
 		
 	}
+	
+	/* restore the octree order */
 	qsort(level_4_octree, LEVEL_4_SIZE, sizeof(struct octree_node), octree_qsort_index);
 	
 	for(i = 0; i < image_size; i++) {
 		pixel = pixels_array[i];
+		/* Convert 5:6:5 RBG values to 4:4:4 index and write back the color for each pixel */
 		convert_i = ((pixel >> 12) << 8) | (((pixel >> 7) & 0xF) << 4) | ((pixel >> 1) & 0xF);
 		p->img[i] = level_4_octree[convert_i].palette_index;
 	}
@@ -568,18 +580,44 @@ photo_t* read_photo(const char* fname) {
 
 }
 
+/*
+ * octree_qsort_pixel
+ *   DESCRIPTION: This function provides the sorting rule for qsort based on number of pixels a specific
+ *                palette color has.
+ *   INPUTS: two octree nodes on the same level
+ *   OUTPUTS: none
+ *   RETURN VALUE: rule for sorting based on number of pixels of a palette color
+ *   SIDE EFFECTS: none
+ */
 int octree_qsort_pixel(const void* x, const void* y){
 	const struct octree_node* octree_node_a = x;
 	const struct octree_node* octree_node_b = y;
 	return (octree_node_b->number_of_pixels - octree_node_a->number_of_pixels);
 }
 
+/*
+ * octree_qsort_index
+ *   DESCRIPTION: This function provides the sorting rule for qsort based on level_4_index
+ *   INPUTS: two octree nodes on the same level
+ *   OUTPUTS: none
+ *   RETURN VALUE: rule for sorting based on index
+ *   SIDE EFFECTS: none
+ */
 int octree_qsort_index(const void* x, const void* y){
 	const struct octree_node* octree_node_a = x;
 	const struct octree_node* octree_node_b = y;
 	return (octree_node_a->level_4_index - octree_node_b->level_4_index);
 }
 
+/*
+ * level_4_to_2
+ *   DESCRIPTION: This function finds the index of a level 4 octree node in a level 2 octree,
+ *                by converting its 5:6:5 palette index to the 4:4:4 format.
+ *   INPUTS: 5:6:5 format palette index of a level 4 octree node.
+ *   OUTPUTS: none
+ *   RETURN VALUE: converted index of the given octree 4 node in the 4:4:4 (RRRR|GGGG|BBBB) format
+ *   SIDE EFFECTS: none
+ */
 uint16_t level_4_to_2(uint16_t level_4_node_color_code) {
 	uint16_t convert_red_index = (level_4_node_color_code >> 10) << 4;
 	uint16_t convert_green_index = ((level_4_node_color_code >> 6) & 0x3) << 2;

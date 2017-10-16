@@ -29,10 +29,13 @@
 #define debug(str, ...) \
 	printk(KERN_DEBUG "%s: " str, __FUNCTION__, ## __VA_ARGS__)
 	
+/* conditional code to check if the program is ready to acknowledge new input from tux controller */
 static unsigned int ack_flag;
+
+/* spin lock to protect critical section */
 struct bioc_lock {
 	spinlock_t button_lock;
-	unsigned long status;
+	unsigned long status; /* stores the command code of the button pressed */
 } bioc_lock;
 
 unsigned long led_value;
@@ -59,6 +62,8 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 
     /*printk("packet : %x %x %x\n", a, b, c); */
 	switch(a) {
+		
+		/* (re)initialize the tux controller and LED  */
 		case MTCP_RESET:
 			tuxctl_ioctl(tty, NULL, TUX_INIT, 0);
 			if(ack_flag == 1) {
@@ -66,10 +71,12 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 			}
 			break;
 		
+		/* Set the conditional flag to 1 when the program is ready to acknowledge a new input */
 		case MTCP_ACK:
 			ack_flag = 1;
 			break;
-			
+		
+		/* Set the status field to the instruction code of the button pressed */
 		case MTCP_BIOC_EVENT:
 			tuxctl_BIOC_handler(b, c);
 			break;
@@ -79,6 +86,14 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 	}
 }
 
+/*
+ *tuxctl_BIOC_handler
+ *	DESCRIPTION: the function produces the instruction code of the button pressed.
+ *	INPUT: b and c corresponding to the 2nd and 3rd bytes of the input packet
+ *	OUPUT: None
+ *	Return Value: None.
+ *	Side Effects: It sets the status of button_lock to the instruction code corresponding to the button pressed.
+ */
 void tuxctl_BIOC_handler(unsigned int b, unsigned int c) {
 	unsigned long flags;
 	spin_lock_irqsave(&(bioc_lock.button_lock), flags);
@@ -116,17 +131,20 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 	int ret;
 	
     switch (cmd) {
+		/* Initialize all the variables needed to start taking tux controller actions */
 		case TUX_INIT:
 			ack_flag = 0;
 			led_value = 0;
-			bioc_lock.status = 0xFF;
+			bioc_lock.status = INSTRUCTION_CODE_BIT_MASK;
 			bioc_lock.button_lock = SPIN_LOCK_UNLOCKED;
 			mtcp_write[0] = MTCP_BIOC_ON;
 			mtcp_write[1] = MTCP_LED_USR;
 			tuxctl_ldisc_put(tty, mtcp_write, 2);
 			break;	
-			
+		
+		/* Copy the code for button to arg */
 		case TUX_BUTTONS:
+			/* Critical section to prevent multiple buttons pressed at once */
 			spin_lock_irqsave(&(bioc_lock.button_lock), flags);
 			ret = copy_to_user((void *)arg, (void *)&(bioc_lock.status), sizeof(uint32_t));				
 			if (ret > 0){
@@ -139,18 +157,22 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 			}
 		
 		case TUX_SET_LED:
+			/* Prevention of LED set spam */
 			if (ack_flag == 0) {
 				return 0;
 			}
+			/* Prevention of LED set spam */
 			ack_flag = 0;
 			led_value = arg;
 			mtcp_write[0] = MTCP_LED_SET;
-			mtcp_write[1] = 0x0F;
-			bit_mask = 0x000F;
-			bit_mask_2 = 0x10;
-			bit_mask_3 = 0x10000;
+			/* Switch to determine which LED should be on */
+			mtcp_write[1] = LED_SWITCH;
+			/* A few bitmasks filtering the display of each digit */ 
+			bit_mask = LED_NUMBER_MASK;
+			bit_mask_2 = DISPLAY_VALUE_MASK;
+			bit_mask_3 = LED_BORDER_SELECTOR;
 			
-			
+			/* Setting up LED digits 1 to 4 */
 			for (i = 0; i < 4; i++) {
 				if (arg & (bit_mask_3 << i)) {
 					mtcp_write[(i + 2)] = (seven_led_information[((arg & (bit_mask << (4 * i))) >> (4 * i))] | ((arg >> (20 + i)) & bit_mask_2));

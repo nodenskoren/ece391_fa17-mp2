@@ -56,14 +56,18 @@
 /* 8^2 = 64 nodes at level 2 */
 #define LEVEL_2_SIZE 64
 #define LEVEL_4_USED_SIZE 128
+#define EXISTED_COLORS_MODEX 64
+#define BIT_MASK_5 0x1F
+#define BIT_MASK_6 0x3F
 
+/* octree structure */
 struct octree_node {
 	unsigned int red_msb;
 	unsigned int green_msb;
 	unsigned int blue_msb;
 	unsigned int number_of_pixels;
-	uint16_t level_4_index;
-	uint8_t palette_index;
+	uint16_t level_4_index; /* node's index in level 4 tree (RRRR | GGGG | BBBB) */
+	uint8_t palette_index; /* node's actual index in real palette */
 };
 
 /* Fill a buffer with the pixels for a horizontal line of current room. */
@@ -96,10 +100,13 @@ extern image_t* read_obj_image(const char* fname);
 /* Read room photo from a file into a dynamically allocated structure. */
 extern photo_t* read_photo(const char* fname);
 
+/* qsort rule based on index */
 extern int octree_qsort_index(const void* x, const void* y);
 
+/* qsort rule based on intensity of a color */
 extern int octree_qsort_pixel(const void* x, const void* y);
 
+/* convert 5:6:5 index to 4:4:4 format */
 uint16_t level_4_to_2(uint16_t level_4_node_color_code);
 
 /*

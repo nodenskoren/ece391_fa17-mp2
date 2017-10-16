@@ -9,6 +9,11 @@
 #define TUX_INIT _IO('E', 0x13)
 #define TUX_LED_REQUEST _IO('E', 0x14)
 #define TUX_LED_ACK _IO('E', 0x15)
+#define INSTRUCTION_CODE_BIT_MASK 0xFF
+#define LED_NUMBER_MASK 0x000F
+#define LED_SWITCH 0x0F
+#define LED_BORDER_SELECTOR 0x10000
+#define DISPLAY_VALUE_MASK 0x10
 
 #endif
 
