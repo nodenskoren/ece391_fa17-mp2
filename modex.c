@@ -311,7 +311,7 @@ int set_mode_X(void(*horiz_fill_fn)(int, int, unsigned char[SCROLL_X_DIM]),
     }
 
     /* One display page goes at the start of video memory. */
-    target_img = 320 * 18; 
+    target_img = STATUS_BAR_SIZE; 
 
     /* Map video memory and obtain permission for VGA port access. */
     if (open_memory_and_ports () == -1)
@@ -558,15 +558,15 @@ void clear_screens() {
  *                 shifts the VGA display source to point to the new image
  */ 
  /* buffer is used to hold the text-graph */ 
-extern unsigned char buffer[5760];
+extern unsigned char buffer[STATUS_BAR_SIZE];
 void add_status_bar(char input_type, const char* input_message) {
 	int i;
 	
 	text_to_graphics(input_type, input_message);
 	
 	for(i = 0; i < 4; i++) {
-		SET_WRITE_MASK (1 << (i + 8));
-		copy_status_bar (buffer + (i * 5760 / 4), 0x0000);
+		SET_WRITE_MASK (1 << (i + TEXT_PIXEL_WIDTH));
+		copy_status_bar (buffer + (i * STATUS_BAR_SIZE / 4), 0x0000);
 	}
 	return;
 }
@@ -881,9 +881,19 @@ static void fill_palette_mode_x() {
     REP_OUTSB(0x03C9, palette_RGB, 64 * 3);
 }
 
+/*
+ * fill_my_palette
+ *     DESCRIPTION: Fill VGA palette with remaining colors for the adventure
+ *                  game. This function writes the remaining 192 colors
+ * 					aside from the first 64(of 256) colors.
+ *     INPUTS: none
+ *     OUTPUTS: none
+ *     RETURN VALUE: none
+ *     SIDE EFFECTS: changes the remaining 192 palette colors
+ */
 void fill_my_palette(unsigned char my_palette[192][3]) {
 	/* Start writing at color 64. */
-    OUTB (0x03C8, 0x40);
+    OUTB (0x03C8, SIXTY_FOUR_HEX);
 	
 	/* Write all 192 colors from array. */
     REP_OUTSB (0x03C9, my_palette, 192 * 3);

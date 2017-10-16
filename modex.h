@@ -62,12 +62,15 @@
 #define SCROLL_X_DIM    IMAGE_X_DIM         /* full image width  */
 #define SCROLL_Y_DIM    IMAGE_Y_DIM         /* full image width  */
 #define SCROLL_X_WIDTH  (IMAGE_X_DIM / 4)   /* addresses (bytes) */
+#define STATUS_BAR_SIZE 5760
+#define SIXTY_FOUR_HEX 0x40
+#define TEXT_PIXEL_WIDTH 8
 
 /* 
  * the buffer holding the status bar
  * size is 320 * 18 = 5760
  */
-unsigned char buffer[5760];
+unsigned char buffer[STATUS_BAR_SIZE];
 
 /*
  * NOTES
@@ -147,6 +150,7 @@ extern int draw_horiz_line(int y);
 /* draw a vertical line at horizontal pixel x within the logical view window */
 extern int draw_vert_line(int x);
 
+/* fill the remaining 192 palette colors by calling octree processing in photo.c */
 extern void fill_my_palette(unsigned char my_palette[192][3]);
 
 #endif /* MODEX_H */
