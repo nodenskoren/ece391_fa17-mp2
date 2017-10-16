@@ -326,12 +326,12 @@ cmd_t get_command_tux() {
 			return CMD_RIGHT;
 			
 		/* DOWN */
-		case 191:
+		case 223:
 			pushed_cmd = CMD_DOWN;
 			return CMD_DOWN;
 			
 		/* LEFT */
-		case 223:
+		case 191:
 			pushed_cmd = CMD_LEFT;
 			return CMD_LEFT;
 		

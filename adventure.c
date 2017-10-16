@@ -203,7 +203,10 @@ static game_condition_t game_loop() {
 
     struct timeval cur_time; /* current time(during tick)      */
     cmd_t cmd;               /* command issued by input control */
+	cmd_t cmd_tux;			 /* command issued by tux controller */
     int32_t enter_room;      /* player has changed rooms        */
+	int time_tux_curr = 0;   /* time currently displayed on tux controller */
+	int time_tux_next = 0;   /* time to be displayed on tux controller */
 
     /* Record the starting time--assume success. */
     (void)gettimeofday(&start_time, NULL);
@@ -315,14 +318,24 @@ static game_condition_t game_loop() {
          * off to the nearest tick by definition.
          */
         /*(none right now...) */
-
+		time_tux_next = tick_time.tv_sec - start_time.tv_sec;
+		if (time_tux_next != time_tux_curr) {
+			display_time_on_tux(time_tux_next);
+			time_tux_curr = time_tux_next;
+		}
+		
         /*
          * Handle synchronous events--in this case, only player commands.
          * Note that typed commands that move objects may cause the room
          * to be redrawn.
          */
-
+		
         cmd = get_command();
+		cmd_tux = get_command_tux();
+		if (cmd_tux != CMD_NONE) {
+			cmd = cmd_tux;
+		}
+		
         switch (cmd) {
             case CMD_UP:    move_photo_down();  break;
             case CMD_RIGHT: move_photo_left();  break;
