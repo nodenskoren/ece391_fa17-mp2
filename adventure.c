@@ -317,7 +317,8 @@ static game_condition_t game_loop() {
          * than tick counts for timing, although the real time is rounded
          * off to the nearest tick by definition.
          */
-        /*(none right now...) */
+		 
+        /* This calculates the num_seconds elapsed since the beginning of the game */
 		time_tux_next = tick_time.tv_sec - start_time.tv_sec;
 		if (time_tux_next != time_tux_curr) {
 			display_time_on_tux(time_tux_next);
@@ -329,6 +330,14 @@ static game_condition_t game_loop() {
          * Note that typed commands that move objects may cause the room
          * to be redrawn.
          */
+		 
+		 /*
+		  * critical section to prevent sudden change of tux controller command when keyboard command
+		  * was acknowledge.
+		  *
+		  * If there's an input from tux controller, use the command from tux controller.
+		  * If not, use the keyboard. 
+		  */
 		(void)pthread_mutex_lock(&msg_lock);
         cmd = get_command();
 		cmd_tux = get_command_tux();

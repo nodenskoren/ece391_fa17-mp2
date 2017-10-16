@@ -570,11 +570,11 @@ unsigned char font_data[256][16] = {
  *     RETURN VALUE: none
  *     SIDE EFFECTS: Fills the buffer array with corresponding converted text-image.
  */
-extern unsigned char buffer[5760];
+extern unsigned char buffer[BUFFER_SIZE];
 void text_to_graphics(char input_type, const char* input_string_pointer) {
 
 	/* Image size = 320 per row, 16 pixel for text + 1 pixel above + 1 pixel below */
-	int image_size = 320 * (16 + 2);
+	int image_size = PIXELS_PER_ROW * (TEXT_PIXEL_HEIGHT + 2);
 	int string_length = strlen(input_string_pointer);
 	int i, character_index, row_index, column_index, index, offset, bit_mask;
 
@@ -584,9 +584,9 @@ void text_to_graphics(char input_type, const char* input_string_pointer) {
 
 	/* Clear or initialize the screen with no components */
 	if (input_type == 'C') {
-		for (i = 0; i < 5760; i++) {
+		for (i = 0; i < BUFFER_SIZE; i++) {
 			/* Fill the background with blue color, 3 is the color for blue */
-			buffer[i] = 3;
+			buffer[i] = BLUE_CODE;
 		}
 		return;
 	}
@@ -600,10 +600,10 @@ void text_to_graphics(char input_type, const char* input_string_pointer) {
 	/* Clear all the components first, then display only the status message */
 	/* Display on the center */
 	else if (input_type == 'S') {
-		for (i = 0; i < 5760; i++) {
-			buffer[i] = 3;
+		for (i = 0; i < BUFFER_SIZE; i++) {
+			buffer[i] = BLUE_CODE;
 		}
-		offset = (320 - 8 * string_length) / 2;
+		offset = (PIXELS_PER_ROW - TEXT_PIXEL_WIDTH * string_length) / 2;
 	}
 
 	/* Display the user typed message */
@@ -611,23 +611,23 @@ void text_to_graphics(char input_type, const char* input_string_pointer) {
 	else if (input_type == 'T') {
 		strcat(input_string, "_");
 		string_length++;
-		offset = 320 - 8 * string_length;
+		offset = PIXELS_PER_ROW - TEXT_PIXEL_WIDTH * string_length;
 	}
 	
 	for (character_index = 0; character_index < string_length; character_index++) {
-		for (row_index = 0; row_index < 16; row_index++) {
-			bit_mask = 0x80;
-			for (column_index = 0; column_index < 8; column_index++) {
+		for (row_index = 0; row_index < TEXT_PIXEL_HEIGHT; row_index++) {
+			bit_mask = BIT_MASK;
+			for (column_index = 0; column_index < TEXT_PIXEL_WIDTH; column_index++) {
 				/* Calculate the byte address mapping, if latter half needs to +1 from the offset */
 				if (column_index < 4) {
-					index = offset / 4 + (character_index * 8 + (row_index + 1) * 320 + (column_index % 4) * image_size) / 4;
+					index = offset / 4 + (character_index * TEXT_PIXEL_WIDTH + (row_index + 1) * PIXELS_PER_ROW + (column_index % 4) * image_size) / 4;
 				}
 				else {
-					index = offset / 4 + (character_index * 8 + (row_index + 1) * 320 + (column_index % 4) * image_size) / 4 + 1;
+					index = offset / 4 + (character_index * TEXT_PIXEL_WIDTH + (row_index + 1) * PIXELS_PER_ROW + (column_index % 4) * image_size) / 4 + 1;
 				}
 				/* If the text is not empty, display it with yellow color */
 				if (font_data[(int)input_string[character_index]][row_index] & bit_mask) {
-					buffer[index] = 0x3C;
+					buffer[index] = YELLOW_CODE;
 				}
 				bit_mask = bit_mask >> 1;
 			}

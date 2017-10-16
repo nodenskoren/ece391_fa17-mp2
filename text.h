@@ -39,6 +39,13 @@
 /* The default VGA text mode font is 8x16 pixels. */
 #define FONT_WIDTH   8
 #define FONT_HEIGHT 16
+#define BUFFER_SIZE 5760
+#define BLUE_CODE 3
+#define YELLOW_CODE 0x3C
+#define BIT_MASK 0x80
+#define PIXELS_PER_ROW 320
+#define TEXT_PIXEL_HEIGHT 16
+#define TEXT_PIXEL_WIDTH 8
 
 /* Standard VGA text font. */
 extern unsigned char font_data[256][16];

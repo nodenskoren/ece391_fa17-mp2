@@ -57,6 +57,7 @@
 #include "assert.h"
 #include "input.h"
 
+/* add the tux controller module to handle tux controller inputs and display */
 #include "./module/mtcp.h"
 #include "./module/tuxctl-ioctl.h"
 
@@ -72,6 +73,16 @@ static struct termios tio_orig;
 static int fd;
 static cmd_t pushed_cmd = CMD_NONE;
 
+/*
+ * init_tux
+ *   DESCRIPTION: Initializes the tux controller. Invoke the ioctl function in tuxctl-ioctl.
+ *                
+ *   INPUTS: none
+ *   OUTPUTS: none
+ *   RETURN VALUE: always return 0
+ *   SIDE EFFECTS: changes the ack and led status in tuxctl-ioctl
+ *                 
+ */
 void init_tux() {
 	fd = open("/dev/ttyS0", O_RDWR | O_NOCTTY);
 	int ldsic_num = N_MOUSE;
@@ -125,6 +136,7 @@ int init_input() {
         return -1;
     }
 
+	/* reinitialize the tux controller as well when resetting the keyboard (original input controller). */
 	init_tux();
 	
     /* Return success. */
@@ -311,47 +323,50 @@ cmd_t get_command_tux() {
 	unsigned long cmd;
 	cmd_t pushed = CMD_NONE;
 	cmd = 0;
+	
+	/* call the tuxctl-ioctl to handle get button request */
 	ioctl(fd, TUX_BUTTONS, &cmd);
 	
-	switch(cmd & 0x00FF) {
+	/* mask the cmd by 0xFF to map to the instruction code in documentation (also masked in ioctl) */
+	switch(cmd & CMD_BIT_MASK) {
 		
 		/* UP */ 
-		case 239:
+		case UP_BUTTON:
 			pushed_cmd = CMD_UP;
 			return CMD_UP;
 		
 		/* RIGHT */
-		case 127:
+		case RIGHT_BUTTON:
 			pushed_cmd = CMD_RIGHT;
 			return CMD_RIGHT;
 			
 		/* DOWN */
-		case 223:
+		case DOWN_BUTTON:
 			pushed_cmd = CMD_DOWN;
 			return CMD_DOWN;
 			
 		/* LEFT */
-		case 191:
+		case LEFT_BUTTON:
 			pushed_cmd = CMD_LEFT;
 			return CMD_LEFT;
 		
 		/* A */
-		case 253:
+		case A_BUTTON:
 			pushed = CMD_MOVE_LEFT;
 			break;
 			
 		/* B */
-		case 251:
+		case B_BUTTON:
 			pushed = CMD_ENTER;
 			break;
 		
 		/* C */
-		case 247:
+		case C_BUTTON:
 			pushed = CMD_MOVE_RIGHT;
 			break;
 		
 		/* START */
-		case 254:
+		case START_BUTTON:
 			pushed = CMD_QUIT;
 			break;
 			
@@ -395,21 +410,25 @@ void display_time_on_tux(int num_seconds) {
 #if (USE_TUX_CONTROLLER != 0)
 #error "Tux controller code is not operational yet."
 #endif*/
-	int minutes = num_seconds / 60;
-	int seconds = num_seconds % 60;
+
+	/* num_seconds divide by 60, the quotient is the minutes and the remainder is the seconds */
+	int minutes = num_seconds / SECONDS_PER_MINUTE;
+	int seconds = num_seconds % SECONDS_PER_MINUTE;
 	unsigned long led_value;
 	
+	/* if less than 10 minutes, display only a single-digit for minute. */
 	if(minutes > 9) {
-		led_value = 0x040F0000;
+		led_value = FOUR_DIGITS;
 	}
 	else {
-		led_value = 0x04070000;
+		led_value = THREE_DIGITS;
 	}
 	
-	led_value = led_value | (((minutes / 10) & 0x0F) << 12);
-	led_value = led_value | (((minutes % 10) & 0x0F) << 8);
-	led_value = led_value | (((seconds / 10) & 0x0F) << 4);
-	led_value = led_value | ((seconds % 10) & 0x0F);
+	/* place the minutes and seconds into the corresponding bytes (last 4 bytes) */
+	led_value = led_value | (((minutes / 10) & BIT_MASK_LAST_BYTE) << 12);
+	led_value = led_value | (((minutes % 10) & BIT_MASK_LAST_BYTE) << 8);
+	led_value = led_value | (((seconds / 10) & BIT_MASK_LAST_BYTE) << 4);
+	led_value = led_value | ((seconds % 10) & BIT_MASK_LAST_BYTE);
 	ioctl(fd, TUX_SET_LED, led_value);
 }
 

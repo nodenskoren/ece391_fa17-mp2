@@ -48,6 +48,19 @@ typedef enum {
 } cmd_t;
 
 #define MAX_TYPED_LEN 20
+#define SECONDS_PER_MINUTE 60
+#define THREE_DIGITS 0x04070000
+#define FOUR_DIGITS 0x040F0000
+#define BIT_MASK_LAST_BYTE 0x0F
+#define UP_BUTTON 239
+#define RIGHT_BUTTON 127
+#define DOWN_BUTTON 223
+#define LEFT_BUTTON 191
+#define A_BUTTON 253
+#define B_BUTTON 251
+#define C_BUTTON 247
+#define START_BUTTON 254
+#define CMD_BIT_MASK 0x00FF
 
 extern void init_tux();
 
@@ -57,6 +70,7 @@ extern int init_input();
 /* Read a command from the input device. */
 extern cmd_t get_command();
 
+/* Read a command from the tux controller. */
 extern cmd_t get_command_tux();
 
 /* Get currently typed command string. */
