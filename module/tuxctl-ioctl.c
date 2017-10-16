@@ -59,32 +59,27 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 
     /*printk("packet : %x %x %x\n", a, b, c); */
 	switch(a) {
-		
 		case MTCP_RESET:
-		
 			tuxctl_ioctl(tty, NULL, TUX_INIT, 0);
 			if(ack_flag == 1) {
 				tuxctl_ioctl(tty, NULL, TUX_SET_LED, led_value);
 			}
-			return;
+			break;
 		
 		case MTCP_ACK:
-		
 			ack_flag = 1;
-			return;
+			break;
 			
 		case MTCP_BIOC_EVENT:
-		
 			tuxctl_BIOC_handler(b, c);
-			return;
+			break;
 			
 		default:
-			return;
+			break;
 	}
 }
 
 void tuxctl_BIOC_handler(unsigned int b, unsigned int c) {
-	
 	unsigned long flags;
 	spin_lock_irqsave(&(bioc_lock.button_lock), flags);
 	bioc_lock.status = ~((~b & 0x0F) 
@@ -116,14 +111,10 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 	unsigned long flags;
 	unsigned long bit_mask;
 	unsigned long bit_mask_2;
-	unsigned long bit_mask_3;
-	int i;
 	int ret;
 	
     switch (cmd) {
-		
 		case TUX_INIT:
-		
 			ack_flag = 0;
 			led_value = 0;
 			bioc_lock.status = 0xFF;
@@ -131,59 +122,66 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 			mtcp_write[0] = MTCP_BIOC_ON;
 			mtcp_write[1] = MTCP_LED_USR;
 			tuxctl_ldisc_put(tty, mtcp_write, 2);
-			return 0;	
+			break;	
 			
 		case TUX_BUTTONS:
-		
 			spin_lock_irqsave(&(bioc_lock.button_lock), flags);
 			ret = copy_to_user((void *)arg, (void *)&(bioc_lock.status), sizeof(uint32_t));				
-
 			if (ret > 0){
 				spin_unlock_irqrestore(&(bioc_lock.button_lock), flags);				
 				return -EFAULT;
-			}	
-			
+			}
 			else {
 				spin_unlock_irqrestore(&(bioc_lock.button_lock), flags);
-				return 0;
+				break;
 			}
 		
 		case TUX_SET_LED:
-		
 			if (ack_flag == 0) {
 				return 0;
 			}
-			
-			led_value = arg;
 			ack_flag = 0;
-			mtcp_write[0] = MTCP_LED_USR;
-			tuxctl_ldisc_put(tty, &mtcp_write[0], 1);
+			led_value = arg;
 			mtcp_write[0] = MTCP_LED_SET;
 			mtcp_write[1] = 0x0F;
-			bit_mask = 0x1000;
-			bit_mask_2 = 0x000F;
-			bit_mask_3 = 0x10;
-			
-			for (i = 2; i < 6; i++) {
-				if ((arg >> 4) & bit_mask)
-					mtcp_write[i] = seven_led_information[(arg & bit_mask_2) >> (4 * (i-2))] | ((arg >> (18 + i)) & bit_mask_3);
-				else
-					mtcp_write[i] = 0;
-				
-				bit_mask = bit_mask << 1;
-				bit_mask_2 = bit_mask_2 << 4;
+			bit_mask = 0x000F;
+			bit_mask_2 = 0x10;
+			if (arg & 0x10000) {
+				mtcp_write[2] = (seven_led_information[arg & bit_mask] | ((arg >> 20) & bit_mask_2));
 			}
-			
+			else {
+				mtcp_write[2] = 0;
+			}
+			if (arg & 0x20000) {
+				mtcp_write[3] = (seven_led_information[(arg & (bit_mask << 4)) >> 4] | ((arg >> 21) & bit_mask_2));
+			}
+			else {
+				mtcp_write[3] = 0;
+			}			
+			if (arg & 0x40000) {
+				mtcp_write[4] = (seven_led_information[(arg & (bit_mask << 8)) >> 8] | ((arg >> 22) & bit_mask_2));
+			}
+			else {
+				mtcp_write[4] = 0;
+			}
+			if (arg & 0x80000) {
+				mtcp_write[5] = (seven_led_information[(arg & (bit_mask << 12)) >> 12] | ((arg >> 23) & bit_mask_2));
+			}
+			else {
+				mtcp_write[5] = 0;
+			}
 			tuxctl_ldisc_put(tty, mtcp_write, 6);
-			return 0;
+			break;
 				
 		case TUX_LED_ACK:
-			return 0;
+			break;
 		case TUX_LED_REQUEST:
-			return 0;
+			break;
 		case TUX_READ_LED:
-			return 0;
+			break;
 		default:
 			return -EINVAL;
     }
+	return 0;
 }
+

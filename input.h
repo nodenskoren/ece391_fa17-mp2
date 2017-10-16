@@ -75,3 +75,4 @@ extern void shutdown_input();
 extern void display_time_on_tux(int num_seconds);
 
 #endif /* INPUT_H */
+

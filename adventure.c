@@ -329,12 +329,13 @@ static game_condition_t game_loop() {
          * Note that typed commands that move objects may cause the room
          * to be redrawn.
          */
-		
+		(void)pthread_mutex_lock(&msg_lock);
         cmd = get_command();
 		cmd_tux = get_command_tux();
 		if (cmd_tux != CMD_NONE) {
 			cmd = cmd_tux;
 		}
+		(void)pthread_mutex_unlock (&msg_lock);
 		
         switch (cmd) {
             case CMD_UP:    move_photo_down();  break;
