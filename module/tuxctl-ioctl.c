@@ -111,6 +111,8 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 	unsigned long flags;
 	unsigned long bit_mask;
 	unsigned long bit_mask_2;
+	unsigned long bit_mask_3;	
+	int i;
 	int ret;
 	
     switch (cmd) {
@@ -146,30 +148,18 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 			mtcp_write[1] = 0x0F;
 			bit_mask = 0x000F;
 			bit_mask_2 = 0x10;
-			if (arg & 0x10000) {
-				mtcp_write[2] = (seven_led_information[arg & bit_mask] | ((arg >> 20) & bit_mask_2));
+			bit_mask_3 = 0x10000;
+			
+			
+			for (i = 0; i < 4; i++) {
+				if (arg & (bit_mask_3 << i)) {
+					mtcp_write[(i + 2)] = (seven_led_information[((arg & (bit_mask << (4 * i))) >> (4 * i))] | ((arg >> (20 + i)) & bit_mask_2));
+				}
+				else {
+					mtcp_write[(i + 2)] = 0;
+				}
 			}
-			else {
-				mtcp_write[2] = 0;
-			}
-			if (arg & 0x20000) {
-				mtcp_write[3] = (seven_led_information[(arg & (bit_mask << 4)) >> 4] | ((arg >> 21) & bit_mask_2));
-			}
-			else {
-				mtcp_write[3] = 0;
-			}			
-			if (arg & 0x40000) {
-				mtcp_write[4] = (seven_led_information[(arg & (bit_mask << 8)) >> 8] | ((arg >> 22) & bit_mask_2));
-			}
-			else {
-				mtcp_write[4] = 0;
-			}
-			if (arg & 0x80000) {
-				mtcp_write[5] = (seven_led_information[(arg & (bit_mask << 12)) >> 12] | ((arg >> 23) & bit_mask_2));
-			}
-			else {
-				mtcp_write[5] = 0;
-			}
+			
 			tuxctl_ldisc_put(tty, mtcp_write, 6);
 			break;
 				
