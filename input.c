@@ -307,17 +307,17 @@ cmd_t get_command() {
 }
 
 /* 
- * get_tux_command
- *   DESCRIPTION: Reads a command from the input controller.  As some
+ * get_command_tux
+ *   DESCRIPTION: Reads a command from the tux controller.  As some
  *                controllers provide only absolute input (e.g., go
  *                right), the current direction is needed as an input
  *                to this routine.
- *   INPUTS: None
+ *   INPUTS: cur_dir -- current direction of motion
  *   OUTPUTS: none
- *   RETURN VALUE: command issued by the input controller
+ *   RETURN VALUE: command issued by the tux controller
  *   SIDE EFFECTS: drains any tux controller input
  */
-
+ 
 cmd_t get_command_tux() {
 	
 	unsigned long cmd;
