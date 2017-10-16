@@ -35,7 +35,7 @@ static unsigned int ack_flag;
 /* spin lock to protect critical section */
 struct bioc_lock {
 	spinlock_t button_lock;
-	unsigned long status; /* stores the command code of the button pressed */
+	unsigned long status; /* stores the 8-bit code of the button pressed */
 } bioc_lock;
 
 unsigned long led_value;
@@ -76,7 +76,7 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 			ack_flag = 1;
 			break;
 		
-		/* Set the status field to the instruction code of the button pressed */
+		/* Set the status field to the 8-bit code of the button pressed */
 		case MTCP_BIOC_EVENT:
 			tuxctl_BIOC_handler(b, c);
 			break;
@@ -88,11 +88,11 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 
 /*
  *tuxctl_BIOC_handler
- *	DESCRIPTION: the function produces the instruction code of the button pressed.
+ *	DESCRIPTION: the function produces the 8-bit code of the button pressed.
  *	INPUT: b and c corresponding to the 2nd and 3rd bytes of the input packet
  *	OUPUT: None
  *	Return Value: None.
- *	Side Effects: It sets the status of button_lock to the instruction code corresponding to the button pressed.
+ *	Side Effects: It sets the status of button_lock to the 8-bit code corresponding to the button pressed.
  */
 void tuxctl_BIOC_handler(unsigned int b, unsigned int c) {
 	unsigned long flags;
@@ -135,7 +135,7 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 		case TUX_INIT:
 			ack_flag = 0;
 			led_value = 0;
-			bioc_lock.status = INSTRUCTION_CODE_BIT_MASK;
+			bioc_lock.status = EIGHT_BIT_CODE_BIT_MASK;
 			bioc_lock.button_lock = SPIN_LOCK_UNLOCKED;
 			mtcp_write[0] = MTCP_BIOC_ON;
 			mtcp_write[1] = MTCP_LED_USR;
